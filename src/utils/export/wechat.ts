@@ -24,29 +24,82 @@ const CODE_ELEMENT_PREVIEW_STYLE = [
   'border: none',
 ].join('; ');
 
-const LIST_STYLE_OVERRIDES = {
-  ul: 'margin: 0.8em 0; padding-left: 1.5em; list-style-type: disc; list-style-position: outside;',
-  ol: 'margin: 0.8em 0; padding-left: 1.5em; list-style-type: decimal; list-style-position: outside;',
-  li: 'display: list-item; margin: 0.35em 0; white-space: normal; word-break: break-word; text-align: left; position: static;',
-};
-
-const stripUnsafeListDeclarations = (style: string, tagName: 'UL' | 'OL' | 'LI') => {
-  const base = style
-    .replace(/list-style(?:-[a-z]+)?\s*:[^;]+;?/gi, '')
-    .replace(/padding-left\s*:[^;]+;?/gi, '')
-    .replace(/margin(?:-[a-z]+)?\s*:[^;]+;?/gi, '')
-    .replace(/position\s*:[^;]+;?/gi, '')
-    .replace(/counter-reset\s*:[^;]+;?/gi, '')
+const buildWechatListParagraphStyle = (paragraphStyle: string, depth: number) => {
+  const base = paragraphStyle
+    .replace(/text-align\s*:[^;]+;?/gi, '')
     .replace(/text-indent\s*:[^;]+;?/gi, '')
+    .replace(/margin(?:-[a-z]+)?\s*:[^;]+;?/gi, '')
     .trim();
 
-  const override = tagName === 'UL'
-    ? LIST_STYLE_OVERRIDES.ul
-    : tagName === 'OL'
-      ? LIST_STYLE_OVERRIDES.ol
-      : LIST_STYLE_OVERRIDES.li;
+  return `${base}${base ? '; ' : ''}margin: 0.45em 0; padding-left: ${depth * 1.5}em; text-indent: 0; text-align: left; white-space: pre-wrap; word-break: break-word; letter-spacing: 0;`;
+};
 
-  return `${base}${base ? '; ' : ''}${override}`;
+const collectListItemHtml = (listItem: HTMLLIElement) => {
+  const contentContainer = document.createElement('div');
+  const nestedLists: Array<HTMLUListElement | HTMLOListElement> = [];
+  let needsLineBreak = false;
+
+  Array.from(listItem.childNodes).forEach((node) => {
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      const element = node as HTMLElement;
+      if (element.tagName === 'UL' || element.tagName === 'OL') {
+        nestedLists.push(element as HTMLUListElement | HTMLOListElement);
+        return;
+      }
+
+      if (element.tagName === 'BR') {
+        return;
+      }
+
+      if ((element.tagName === 'P' || element.tagName === 'DIV') && element.innerHTML.trim()) {
+        if (needsLineBreak) {
+          contentContainer.appendChild(document.createElement('br'));
+        }
+        const span = document.createElement('span');
+        span.innerHTML = element.innerHTML;
+        contentContainer.appendChild(span);
+        needsLineBreak = true;
+        return;
+      }
+    }
+
+    if (node.textContent?.trim() || node.nodeType !== Node.TEXT_NODE) {
+      contentContainer.appendChild(node.cloneNode(true));
+      needsLineBreak = true;
+    }
+  });
+
+  return {
+    html: contentContainer.innerHTML.trim(),
+    nestedLists,
+  };
+};
+
+const convertListToWechatBlocks = (
+  list: HTMLUListElement | HTMLOListElement,
+  getStyle: (key: string) => string,
+  depth = 0
+) => {
+  const fragment = document.createDocumentFragment();
+  const paragraphStyle = getStyle('p');
+
+  Array.from(list.children).forEach((child, index) => {
+    if (!(child instanceof HTMLLIElement)) return;
+
+    const { html, nestedLists } = collectListItemHtml(child);
+    const paragraph = document.createElement('p');
+    paragraph.style.cssText = buildWechatListParagraphStyle(paragraphStyle, depth);
+
+    const marker = list.tagName === 'OL' ? `${index + 1}. ` : '• ';
+    paragraph.innerHTML = `${marker}${html || ''}`;
+    fragment.appendChild(paragraph);
+
+    nestedLists.forEach((nestedList) => {
+      fragment.appendChild(convertListToWechatBlocks(nestedList, getStyle, depth + 1));
+    });
+  });
+
+  return fragment;
 };
 
 const mergeStyle = (existing: string | null, incoming: string) => {
@@ -74,41 +127,15 @@ const applyPrismTokenInlineStyles = (root: ParentNode) => {
   });
 };
 
-const normalizeListItemParagraphs = (listItem: HTMLLIElement, paragraphStyle: string) => {
-  const directParagraphs = Array.from(listItem.children).filter(
-    (child): child is HTMLParagraphElement => child.tagName === 'P'
-  );
-
-  directParagraphs.forEach((paragraph, index) => {
-    const replacementTag = index === 0 ? 'span' : 'div';
-    const replacement = document.createElement(replacementTag);
-    replacement.innerHTML = paragraph.innerHTML;
-    replacement.style.cssText = replacementTag === 'span'
-      ? mergeStyle(paragraphStyle, 'display: inline; margin: 0; padding: 0; white-space: normal;')
-      : mergeStyle(paragraphStyle, 'display: block; margin: 0.35em 0 0; padding: 0;');
-    paragraph.replaceWith(replacement);
-  });
-
-  Array.from(listItem.childNodes).forEach((node) => {
-    if (node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName === 'BR') {
-      node.remove();
-    }
-  });
-};
-
 const normalizeListsForWechat = (root: HTMLElement, getStyle: (key: string) => string) => {
-  root.querySelectorAll('ul, ol').forEach((list) => {
-    if (!(list instanceof HTMLElement)) return;
-    const tagName = list.tagName as 'UL' | 'OL';
-    const templateStyle = getStyle(tagName.toLowerCase());
-    list.style.cssText = stripUnsafeListDeclarations(templateStyle, tagName);
-  });
+  const lists = Array.from(root.querySelectorAll('ul, ol'));
 
-  root.querySelectorAll('li').forEach((listItem) => {
-    if (!(listItem instanceof HTMLLIElement)) return;
-    const templateStyle = getStyle('li');
-    listItem.style.cssText = stripUnsafeListDeclarations(templateStyle, 'LI');
-    normalizeListItemParagraphs(listItem, getStyle('p'));
+  lists.forEach((list) => {
+    if (!(list instanceof HTMLUListElement || list instanceof HTMLOListElement)) return;
+    if (list.parentElement?.closest('ul, ol')) return;
+
+    const replacement = convertListToWechatBlocks(list, getStyle, 0);
+    list.replaceWith(replacement);
   });
 };
 
