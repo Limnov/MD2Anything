@@ -65,6 +65,11 @@ const generalExportOptions = [
   { key: 'downloadHtml', label: '导出HTML', icon: <CodeOutlined /> },
 ];
 
+const getXiaohongshuPreviewSize = (size: XiaohongshuSize) => {
+  const option = xiaohongshuSizeOptions.find(opt => opt.value === size);
+  return option ? { width: option.width, height: option.height } : undefined;
+};
+
 const App: React.FC = () => {
   // 状态
   const [historyVisible, setHistoryVisible] = useState(false);
@@ -99,6 +104,10 @@ const App: React.FC = () => {
 
   // 当前模板
   const currentTemplate = getTemplateById(selectedTemplateId);
+  const xiaohongshuPreviewSize = useMemo(
+    () => getXiaohongshuPreviewSize(xiaohongshuSize),
+    [xiaohongshuSize]
+  );
 
   // 文本统计
   const textStats = useMemo(() => getTextStats(markdownContent), [markdownContent]);
@@ -529,7 +538,7 @@ const App: React.FC = () => {
                   fontSize={settings.fontSize}
                   backgroundColor={settings.backgroundColor}
                   margin={settings.margin}
-                  fixedWidth={outputFormat === 'xiaohongshu' ? 360 : undefined}
+                  fixedSize={outputFormat === 'xiaohongshu' ? xiaohongshuPreviewSize : undefined}
                 />
               </div>
             </div>

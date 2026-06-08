@@ -1,4 +1,5 @@
 import { forwardRef, useMemo, useEffect, useRef } from 'react';
+import type { CSSProperties } from 'react';
 import mermaid from 'mermaid';
 import sanitizeHtml from 'sanitize-html';
 import type { Template } from '../types';
@@ -63,11 +64,11 @@ interface PreviewProps {
   fontSize?: number;
   backgroundColor?: string;
   margin?: number;
-  fixedWidth?: number; // 固定宽度（用于小红书预览）
+  fixedSize?: { width: number; height: number | 'auto' }; // 固定尺寸（用于小红书预览）
 }
 
 const Preview = forwardRef<HTMLDivElement, PreviewProps>(
-  ({ markdown, template, fontSize = 15, backgroundColor = '#ffffff', margin = 24, fixedWidth }, ref) => {
+  ({ markdown, template, fontSize = 15, backgroundColor = '#ffffff', margin = 24, fixedSize }, ref) => {
     const mermaidRenderedRef = useRef(false);
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -113,9 +114,20 @@ const Preview = forwardRef<HTMLDivElement, PreviewProps>(
 
     // 背景颜色处理
     const bgColor = backgroundColor === 'transparent' ? 'transparent' : backgroundColor;
+    const cardBgColor = backgroundColor === 'transparent' ? '#ffffff' : bgColor;
 
     // 从 container 样式中提取非背景色的样式
     const containerStyleWithoutBg = (styles.container || '').replace(/background-color:\s*[^;]+;?/gi, '').replace(/background:\s*[^;]+;?/gi, '');
+    const previewCardStyle: CSSProperties = {
+      width: fixedSize?.width ?? '100%',
+      maxWidth: fixedSize ? '100%' : 720,
+      minHeight: fixedSize && fixedSize.height !== 'auto' ? fixedSize.height : undefined,
+      backgroundColor: cardBgColor,
+      borderRadius: 16,
+      boxSizing: 'border-box',
+      overflow: 'hidden',
+      boxShadow: '0 8px 24px rgba(0, 0, 0, 0.08)',
+    };
 
     return (
       <div
@@ -129,9 +141,10 @@ const Preview = forwardRef<HTMLDivElement, PreviewProps>(
           transition: 'background-color 0.3s',
           display: 'flex',
           justifyContent: 'center',
+          alignItems: 'flex-start',
         }}
       >
-        <div style={fixedWidth ? { width: fixedWidth, maxWidth: '100%' } : undefined}>
+        <div style={previewCardStyle}>
         <style>
           {`
             /* 引入 KaTeX 样式 */
@@ -142,6 +155,9 @@ const Preview = forwardRef<HTMLDivElement, PreviewProps>(
 
             .preview-content {
               font-size: ${fontSize}px !important;
+              max-width: 100%;
+              margin: 0;
+              box-sizing: border-box;
               ${containerStyleWithoutBg}
             }
             /* 确保这些元素没有背景色 - 使用 !important 覆盖任何继承的背景 */
