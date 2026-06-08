@@ -1,5 +1,6 @@
-import React, { useCallback, useState, useRef } from 'react';
+import React, { useCallback, useState, useRef, useImperativeHandle, forwardRef } from 'react';
 import { Input, Button, Space, Tooltip, message } from 'antd';
+import type { TextAreaRef } from 'antd/es/input/TextArea';
 import {
   BoldOutlined,
   ItalicOutlined,
@@ -16,6 +17,10 @@ import {
 } from '@ant-design/icons';
 
 const { TextArea } = Input;
+
+export interface MarkdownEditorHandle {
+  getTextarea: () => HTMLTextAreaElement | null;
+}
 
 interface MarkdownEditorProps {
   value: string;
@@ -38,22 +43,44 @@ const toolbarButtons = [
   { icon: <MinusOutlined />, title: '分割线', prefix: '\n---\n', suffix: '' },
 ];
 
-const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
+const MarkdownEditor = forwardRef<MarkdownEditorHandle, MarkdownEditorProps>(({
   value,
   onChange,
   placeholder = '在此输入 Markdown 内容...',
-}) => {
+}, ref) => {
   const [isDragging, setIsDragging] = useState(false);
   const dragCounterRef = useRef(0);
+  const textareaRef = useRef<TextAreaRef | null>(null);
+
+  const getTextarea = useCallback(() => {
+    return textareaRef.current?.resizableTextArea?.textArea ?? null;
+  }, []);
+
+  useImperativeHandle(ref, () => ({
+    getTextarea,
+  }), [getTextarea]);
+
+  const restoreEditorState = useCallback((cursorStart: number, cursorEnd: number, scrollTop: number, scrollLeft: number) => {
+    requestAnimationFrame(() => {
+      const textarea = getTextarea();
+      if (!textarea) return;
+      textarea.focus();
+      textarea.setSelectionRange(cursorStart, cursorEnd);
+      textarea.scrollTop = scrollTop;
+      textarea.scrollLeft = scrollLeft;
+    });
+  }, [getTextarea]);
 
   // 处理工具栏按钮点击
   const handleToolbarClick = useCallback(
     (prefix: string, suffix: string) => {
-      const textarea = document.querySelector('.md-editor-textarea') as HTMLTextAreaElement;
+      const textarea = getTextarea();
       if (!textarea) return;
 
       const start = textarea.selectionStart;
       const end = textarea.selectionEnd;
+      const scrollTop = textarea.scrollTop;
+      const scrollLeft = textarea.scrollLeft;
       const selectedText = value.substring(start, end);
       const newText =
         value.substring(0, start) +
@@ -64,14 +91,10 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
 
       onChange(newText);
 
-      // 恢复焦点和选区
-      setTimeout(() => {
-        textarea.focus();
-        const newCursorPos = start + prefix.length + selectedText.length;
-        textarea.setSelectionRange(newCursorPos, newCursorPos);
-      }, 0);
+      const newCursorPos = start + prefix.length + selectedText.length;
+      restoreEditorState(newCursorPos, newCursorPos, scrollTop, scrollLeft);
     },
-    [value, onChange]
+    [getTextarea, onChange, restoreEditorState, value]
   );
 
   // 处理文本变化
@@ -90,17 +113,16 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
         const textarea = e.currentTarget;
         const start = textarea.selectionStart;
         const end = textarea.selectionEnd;
+        const scrollTop = textarea.scrollTop;
+        const scrollLeft = textarea.scrollLeft;
         const newText =
           value.substring(0, start) + '  ' + value.substring(end);
         onChange(newText);
 
-        setTimeout(() => {
-          textarea.focus();
-          textarea.setSelectionRange(start + 2, start + 2);
-        }, 0);
+        restoreEditorState(start + 2, start + 2, scrollTop, scrollLeft);
       }
     },
-    [value, onChange]
+    [onChange, restoreEditorState, value]
   );
 
   // 处理拖拽进入
@@ -143,13 +165,11 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
       const file = files[0];
       const fileName = file.name.toLowerCase();
 
-      // 检查是否是 .md 文件
       if (!fileName.endsWith('.md') && !fileName.endsWith('.markdown') && !fileName.endsWith('.txt')) {
         message.warning('请拖入 .md 或 .txt 文件');
         return;
       }
 
-      // 读取文件内容
       const reader = new FileReader();
       reader.onload = (event) => {
         const content = event.target?.result as string;
@@ -202,6 +222,7 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
 
       {/* 编辑区 */}
       <TextArea
+        ref={textareaRef}
         className="md-editor-textarea"
         value={value}
         onChange={handleChange}
@@ -250,6 +271,8 @@ const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
       )}
     </div>
   );
-};
+});
+
+MarkdownEditor.displayName = 'MarkdownEditor';
 
 export default MarkdownEditor;

@@ -1,5 +1,238 @@
 import type { Template, Settings } from '../../types';
-import { parseEnhancedMarkdown } from '../enhancedMarkdown';
+import { parseEnhancedMarkdown, prismTokenStyleMap } from '../enhancedMarkdown';
+
+const CODE_BLOCK_PREVIEW_STYLE = [
+  'margin: 16px 0',
+  'border-radius: 8px',
+  'background: #282c34',
+  'border: 1px solid #1f2329',
+  'overflow: hidden',
+].join('; ');
+
+const CODE_ELEMENT_PREVIEW_STYLE = [
+  'display: block',
+  'padding: 16px',
+  'overflow-x: auto',
+  'white-space: pre',
+  'word-break: normal',
+  'font-family: Fira Code, Monaco, Menlo, monospace',
+  'font-size: 14px',
+  'line-height: 1.6',
+  'color: #abb2bf',
+  'background: transparent',
+  'margin: 0',
+  'border: none',
+].join('; ');
+
+const LIST_STYLE_OVERRIDES = {
+  ul: 'margin: 0.8em 0; padding-left: 1.5em; list-style-type: disc; list-style-position: outside;',
+  ol: 'margin: 0.8em 0; padding-left: 1.5em; list-style-type: decimal; list-style-position: outside;',
+  li: 'display: list-item; margin: 0.35em 0; white-space: normal; word-break: break-word; text-align: left; position: static;',
+};
+
+const stripUnsafeListDeclarations = (style: string, tagName: 'UL' | 'OL' | 'LI') => {
+  const base = style
+    .replace(/list-style(?:-[a-z]+)?\s*:[^;]+;?/gi, '')
+    .replace(/padding-left\s*:[^;]+;?/gi, '')
+    .replace(/margin(?:-[a-z]+)?\s*:[^;]+;?/gi, '')
+    .replace(/position\s*:[^;]+;?/gi, '')
+    .replace(/counter-reset\s*:[^;]+;?/gi, '')
+    .replace(/text-indent\s*:[^;]+;?/gi, '')
+    .trim();
+
+  const override = tagName === 'UL'
+    ? LIST_STYLE_OVERRIDES.ul
+    : tagName === 'OL'
+      ? LIST_STYLE_OVERRIDES.ol
+      : LIST_STYLE_OVERRIDES.li;
+
+  return `${base}${base ? '; ' : ''}${override}`;
+};
+
+const mergeStyle = (existing: string | null, incoming: string) => {
+  return [existing?.trim(), incoming.trim()].filter(Boolean).join('; ');
+};
+
+const htmlToPlainText = (html: string) => {
+  const container = document.createElement('div');
+  container.innerHTML = html;
+  return container.textContent || '';
+};
+
+const applyPrismTokenInlineStyles = (root: ParentNode) => {
+  root.querySelectorAll('span[class*="token"]').forEach((node) => {
+    if (!(node instanceof HTMLElement)) return;
+
+    const tokenClasses = Array.from(node.classList).filter(className => className !== 'token');
+    const matchedStyles = tokenClasses
+      .map(className => prismTokenStyleMap[className])
+      .filter(Boolean);
+
+    if (matchedStyles.length > 0) {
+      node.style.cssText = mergeStyle(node.getAttribute('style'), matchedStyles.join(' '));
+    }
+  });
+};
+
+const normalizeListItemParagraphs = (listItem: HTMLLIElement, paragraphStyle: string) => {
+  const directParagraphs = Array.from(listItem.children).filter(
+    (child): child is HTMLParagraphElement => child.tagName === 'P'
+  );
+
+  directParagraphs.forEach((paragraph, index) => {
+    const replacementTag = index === 0 ? 'span' : 'div';
+    const replacement = document.createElement(replacementTag);
+    replacement.innerHTML = paragraph.innerHTML;
+    replacement.style.cssText = replacementTag === 'span'
+      ? mergeStyle(paragraphStyle, 'display: inline; margin: 0; padding: 0; white-space: normal;')
+      : mergeStyle(paragraphStyle, 'display: block; margin: 0.35em 0 0; padding: 0;');
+    paragraph.replaceWith(replacement);
+  });
+
+  Array.from(listItem.childNodes).forEach((node) => {
+    if (node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).tagName === 'BR') {
+      node.remove();
+    }
+  });
+};
+
+const normalizeListsForWechat = (root: HTMLElement, getStyle: (key: string) => string) => {
+  root.querySelectorAll('ul, ol').forEach((list) => {
+    if (!(list instanceof HTMLElement)) return;
+    const tagName = list.tagName as 'UL' | 'OL';
+    const templateStyle = getStyle(tagName.toLowerCase());
+    list.style.cssText = stripUnsafeListDeclarations(templateStyle, tagName);
+  });
+
+  root.querySelectorAll('li').forEach((listItem) => {
+    if (!(listItem instanceof HTMLLIElement)) return;
+    const templateStyle = getStyle('li');
+    listItem.style.cssText = stripUnsafeListDeclarations(templateStyle, 'LI');
+    normalizeListItemParagraphs(listItem, getStyle('p'));
+  });
+};
+
+const normalizeCodeBlocksForWechat = (root: HTMLElement) => {
+  root.querySelectorAll('pre.code-block').forEach((pre) => {
+    if (!(pre instanceof HTMLElement)) return;
+    pre.style.cssText = CODE_BLOCK_PREVIEW_STYLE;
+
+    const code = pre.querySelector('code');
+    if (code instanceof HTMLElement) {
+      code.style.cssText = CODE_ELEMENT_PREVIEW_STYLE;
+      applyPrismTokenInlineStyles(code);
+    }
+  });
+};
+
+const applyInlineStylesToWechatHtml = (
+  rawHtml: string,
+  getStyle: (key: string) => string,
+  isTransparent: boolean
+) => {
+  const container = document.createElement('div');
+  container.innerHTML = rawHtml;
+
+  for (let i = 1; i <= 6; i++) {
+    container.querySelectorAll(`h${i}`).forEach((node) => {
+      if (node instanceof HTMLElement) {
+        node.style.cssText = getStyle(`h${i}`);
+      }
+    });
+  }
+
+  container.querySelectorAll('p').forEach((node) => {
+    if (node instanceof HTMLElement) {
+      node.style.cssText = getStyle('p');
+    }
+  });
+
+  container.querySelectorAll('blockquote').forEach((node) => {
+    if (node instanceof HTMLElement) {
+      node.style.cssText = getStyle('blockquote');
+    }
+  });
+
+  container.querySelectorAll('pre:not(.code-block)').forEach((node) => {
+    if (node instanceof HTMLElement) {
+      node.style.cssText = getStyle('pre');
+    }
+  });
+
+  container.querySelectorAll('pre:not(.code-block) > code').forEach((node) => {
+    if (node instanceof HTMLElement) {
+      node.style.cssText = 'background: transparent; padding: 0; margin: 0; border: none; color: inherit; font-size: inherit; font-family: inherit;';
+    }
+  });
+
+  container.querySelectorAll('code:not(pre code)').forEach((node) => {
+    if (node instanceof HTMLElement) {
+      node.style.cssText = getStyle('code');
+    }
+  });
+
+  container.querySelectorAll('img').forEach((node) => {
+    if (node instanceof HTMLElement) {
+      node.style.cssText = getStyle('img');
+    }
+  });
+
+  container.querySelectorAll('a').forEach((node) => {
+    if (node instanceof HTMLElement) {
+      node.style.cssText = mergeStyle(node.getAttribute('style'), getStyle('a'));
+    }
+  });
+
+  container.querySelectorAll('table').forEach((node) => {
+    if (node instanceof HTMLElement) {
+      node.style.cssText = getStyle('table');
+    }
+  });
+
+  container.querySelectorAll('thead, tbody, tr').forEach((node) => {
+    if (node instanceof HTMLElement) {
+      node.style.cssText = '';
+    }
+  });
+
+  container.querySelectorAll('th').forEach((node) => {
+    if (node instanceof HTMLElement) {
+      node.style.cssText = getStyle('th');
+    }
+  });
+
+  container.querySelectorAll('td').forEach((node) => {
+    if (node instanceof HTMLElement) {
+      node.style.cssText = getStyle('td');
+    }
+  });
+
+  container.querySelectorAll('hr').forEach((node) => {
+    if (node instanceof HTMLElement) {
+      node.style.cssText = getStyle('hr');
+    }
+  });
+
+  normalizeListsForWechat(container, getStyle);
+  normalizeCodeBlocksForWechat(container);
+
+  if (isTransparent) {
+    container.querySelectorAll('pre.code-block').forEach((node) => {
+      if (node instanceof HTMLElement) {
+        node.style.backgroundColor = '#f5f5f5';
+        node.style.borderColor = '#d9d9d9';
+      }
+    });
+
+    container.querySelectorAll('pre.code-block > code').forEach((node) => {
+      if (node instanceof HTMLElement) {
+        node.style.color = '#333333';
+      }
+    });
+  }
+
+  return container.innerHTML;
+};
 
 /**
  * 将Markdown转换为带有完整内联样式的HTML
@@ -16,51 +249,40 @@ export const getInlineStyledHTML = (
   template: Template,
   settings?: Partial<Settings>
 ): string => {
-  let rawHtml = parseEnhancedMarkdown(markdown);
+  let rawHtml = parseEnhancedMarkdown(markdown, { mode: 'wechat' });
   const styles = template.styles;
 
   // ========== 第一步：清理HTML ==========
-  // 清理表格相关的空标签（微信公众号对表格格式敏感）
-  // 多轮清理，确保彻底
   let prevHtml = '';
   while (prevHtml !== rawHtml) {
     prevHtml = rawHtml;
-    // 清理空的 thead（包括只包含空 tr/td 的）
     rawHtml = rawHtml.replace(/<thead>\s*<tr>\s*(<td>\s*<\/td>\s*)*<\/tr>\s*<\/thead>/gi, '');
     rawHtml = rawHtml.replace(/<thead>\s*<\/thead>/gi, '');
-    // 清理空的 tbody
     rawHtml = rawHtml.replace(/<tbody>\s*<\/tbody>/gi, '');
-    // 清理空的 tr
     rawHtml = rawHtml.replace(/<tr>\s*<\/tr>/gi, '');
-    // 清理表格前的空段落
     rawHtml = rawHtml.replace(/<p>\s*<\/p>\s*(<table)/gi, '$1');
     rawHtml = rawHtml.replace(/<p\s*\/>\s*(<table)/gi, '$1');
   }
 
-  // ========== 第二步：获取设置值 ==========
   const fontSize = settings?.fontSize || 15;
   const margin = settings?.margin ?? 24;
   const bgColor = settings?.backgroundColor || '#ffffff';
   const isTransparent = bgColor === 'transparent';
 
-  // ========== 第三步：构建容器样式 ==========
-  // 注意：font-family 中不能使用双引号，否则会与 HTML 属性冲突
   const containerStyles: string[] = [
     `font-size: ${fontSize}px`,
-    `line-height: 1.75`,
-    `font-family: -apple-system-font, BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB, Microsoft YaHei UI, Microsoft YaHei, Arial, sans-serif`,
+    'line-height: 1.75',
+    'font-family: -apple-system-font, BlinkMacSystemFont, Helvetica Neue, PingFang SC, Hiragino Sans GB, Microsoft YaHei UI, Microsoft YaHei, Arial, sans-serif',
     `padding: ${margin}px`,
-    `color: #333`,
-    `word-wrap: break-word`,
-    `letter-spacing: 1px`,
+    'color: #333',
+    'word-wrap: break-word',
+    'letter-spacing: 1px',
   ];
 
   if (!isTransparent) {
     containerStyles.push(`background-color: ${bgColor}`);
   }
 
-  // ========== 第四步：定义标签样式 ==========
-  // 注意：微信公众号对样式有特殊要求
   const defaultStyles: Record<string, string> = {
     h1: 'margin-top: 1.2em; margin-bottom: 0.8em; font-weight: bold; font-size: 1.6em; color: #333;',
     h2: 'margin-top: 1em; margin-bottom: 0.6em; font-weight: bold; font-size: 1.4em; color: #333;',
@@ -83,100 +305,12 @@ export const getInlineStyledHTML = (
     hr: 'border: none; height: 1px; background-color: #eee; margin: 1.5em 0;',
   };
 
-  // 使用模板样式覆盖默认样式
-  // 所有样式完全由模板定义，不再硬编码
   const getStyle = (key: string): string => {
     return styles[key as keyof typeof styles] || defaultStyles[key] || '';
   };
 
-  // ========== 第五步：应用样式到标签 ==========
-  let styledHtml = rawHtml;
-
-  // 处理标题
-  for (let i = 1; i <= 6; i++) {
-    const tag = `h${i}`;
-    const style = getStyle(tag);
-    styledHtml = styledHtml.replace(
-      new RegExp(`<${tag}`, 'gi'),
-      `<${tag} style="${style}"`
-    );
-  }
-
-  // 处理段落
-  styledHtml = styledHtml.replace(/<p>/gi, `<p style="${getStyle('p')}">`);
-  styledHtml = styledHtml.replace(/<p /gi, `<p style="${getStyle('p')}" `);
-
-  // 处理引用
-  styledHtml = styledHtml.replace(/<blockquote>/gi, `<blockquote style="${getStyle('blockquote')}">`);
-  styledHtml = styledHtml.replace(/<blockquote /gi, `<blockquote style="${getStyle('blockquote')}" `);
-
-  // ========== 关键：处理代码块（pre）==========
-  // pre 标签需要特殊的背景色处理
-  const preStyle = getStyle('pre');
-  styledHtml = styledHtml.replace(/<pre>/gi, `<pre style="${preStyle}">`);
-  styledHtml = styledHtml.replace(/<pre /gi, `<pre style="${preStyle}" `);
-
-  // ========== 关键：处理 pre 内的 code ==========
-  // pre 内的 code 必须透明背景，继承 pre 的样式
-  styledHtml = styledHtml.replace(
-    /<pre([^>]*)><code([^>]*)>/gi,
-    '<pre$1><code style="background: transparent; padding: 0; margin: 0; border: none; color: inherit; font-size: inherit; font-family: inherit;">'
-  );
-
-  // 处理独立的行内 code（不在 pre 内的）
-  const codeStyle = getStyle('code');
-  styledHtml = styledHtml.replace(/<code>/gi, `<code style="${codeStyle}">`);
-  styledHtml = styledHtml.replace(/<code /gi, `<code style="${codeStyle}" `);
-
-  // 处理列表
-  styledHtml = styledHtml.replace(/<ul>/gi, `<ul style="${getStyle('ul')}">`);
-  styledHtml = styledHtml.replace(/<ul /gi, `<ul style="${getStyle('ul')}" `);
-  styledHtml = styledHtml.replace(/<ol>/gi, `<ol style="${getStyle('ol')}">`);
-  styledHtml = styledHtml.replace(/<ol /gi, `<ol style="${getStyle('ol')}" `);
-  styledHtml = styledHtml.replace(/<li>/gi, `<li style="${getStyle('li')}">`);
-  styledHtml = styledHtml.replace(/<li /gi, `<li style="${getStyle('li')}" `);
-
-  // 处理图片
-  styledHtml = styledHtml.replace(/<img /gi, `<img style="${getStyle('img')}" `);
-
-  // 处理链接
-  styledHtml = styledHtml.replace(/<a /gi, `<a style="${getStyle('a')}" `);
-
-  // ========== 关键：处理表格 ==========
-  // 表格样式需要特别注意，确保没有多余的结构
-  styledHtml = styledHtml.replace(/<table>/gi, `<table style="${getStyle('table')}">`);
-  styledHtml = styledHtml.replace(/<table /gi, `<table style="${getStyle('table')}" `);
-  styledHtml = styledHtml.replace(/<thead>/gi, '<thead style="">');
-  styledHtml = styledHtml.replace(/<tbody>/gi, '<tbody style="">');
-  styledHtml = styledHtml.replace(/<tr>/gi, '<tr style="">');
-  styledHtml = styledHtml.replace(/<th>/gi, `<th style="${getStyle('th')}">`);
-  styledHtml = styledHtml.replace(/<th /gi, `<th style="${getStyle('th')}" `);
-  styledHtml = styledHtml.replace(/<td>/gi, `<td style="${getStyle('td')}">`);
-  styledHtml = styledHtml.replace(/<td /gi, `<td style="${getStyle('td')}" `);
-
-  // 处理分隔线
-  styledHtml = styledHtml.replace(/<hr>/gi, `<hr style="${getStyle('hr')}">`);
-  styledHtml = styledHtml.replace(/<hr /gi, `<hr style="${getStyle('hr')}" `);
-
-  // ========== 处理透明背景下的颜色调整 ==========
-  if (isTransparent) {
-    // 将深色背景改为浅色
-    styledHtml = styledHtml.replace(
-      /style="([^"]*)background-color:\s*#282c34;([^"]*)"/gi,
-      'style="$1background-color: #f5f5f5;$2"'
-    );
-    // 调整 th 的白色文字
-    styledHtml = styledHtml.replace(
-      /<th style="([^"]*?)color:\s*white;?([^"]*)" /gi,
-      '<th style="$1color: #333;$2" '
-    );
-  }
-
-  // ========== 构建最终HTML ==========
-  // 使用 section 作为根容器（微信公众号支持较好）
-  const finalHtml = `<section style="${containerStyles.join('; ')}">${styledHtml}</section>`;
-
-  return finalHtml;
+  const styledHtml = applyInlineStylesToWechatHtml(rawHtml, getStyle, isTransparent);
+  return `<section style="${containerStyles.join('; ')}">${styledHtml}</section>`;
 };
 
 /**
@@ -185,9 +319,8 @@ export const getInlineStyledHTML = (
  */
 export const copyToClipboard = async (html: string): Promise<boolean> => {
   try {
-    // 使用现代 Clipboard API
     const htmlBlob = new Blob([html], { type: 'text/html' });
-    const textBlob = new Blob([html], { type: 'text/plain' });
+    const textBlob = new Blob([htmlToPlainText(html)], { type: 'text/plain' });
 
     await navigator.clipboard.write([
       new ClipboardItem({
@@ -197,7 +330,6 @@ export const copyToClipboard = async (html: string): Promise<boolean> => {
     ]);
     return true;
   } catch {
-    // 降级方案
     return copyWithExecCommand(html);
   }
 };
@@ -261,10 +393,10 @@ export const copyPreviewToClipboard = async (
     const wrapper = document.createElement('section');
     wrapper.style.cssText = [
       `font-size: ${fontSize}px`,
-      `line-height: 1.75`,
+      'line-height: 1.75',
       `padding: ${margin}px`,
-      `color: #333`,
-      `font-family: -apple-system-font, BlinkMacSystemFont, Helvetica Neue, PingFang SC, sans-serif`,
+      'color: #333',
+      'font-family: -apple-system-font, BlinkMacSystemFont, Helvetica Neue, PingFang SC, sans-serif',
       isTransparent ? '' : `background-color: ${bgColor}`,
     ].filter(Boolean).join('; ');
 
@@ -306,7 +438,6 @@ const processElementStyles = (element: HTMLElement): void => {
   const tagName = element.tagName;
   const styleProps: string[] = [];
 
-  // 基础样式
   const propMap: Record<string, string> = {
     fontSize: computedStyle.fontSize,
     fontWeight: computedStyle.fontWeight,
@@ -324,7 +455,6 @@ const processElementStyles = (element: HTMLElement): void => {
     }
   });
 
-  // 背景只对特定元素保留
   if (keepBackgroundTags.has(tagName)) {
     const bg = computedStyle.backgroundColor;
     if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent') {
@@ -332,11 +462,9 @@ const processElementStyles = (element: HTMLElement): void => {
     }
   }
 
-  // 边框 - 处理所有边框属性
   if (computedStyle.border && computedStyle.border !== 'none') {
     styleProps.push(`border: ${computedStyle.border}`);
   } else {
-    // 处理单独的边框属性
     const borderProps = ['border-top', 'border-right', 'border-bottom', 'border-left'];
     borderProps.forEach(prop => {
       const value = computedStyle.getPropertyValue(prop);
@@ -346,16 +474,15 @@ const processElementStyles = (element: HTMLElement): void => {
     });
   }
 
-  // 列表
   if (tagName === 'LI') {
     styleProps.push('white-space: normal');
+    styleProps.push('word-break: break-word');
   }
 
   if (styleProps.length > 0) {
     element.style.cssText = styleProps.join('; ');
   }
 
-  // 递归处理子元素
   Array.from(element.children).forEach(child => {
     if (child instanceof HTMLElement) {
       processElementStyles(child);

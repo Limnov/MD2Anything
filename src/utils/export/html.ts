@@ -26,7 +26,7 @@ export const markdownToStyledHTML = (
   template: Template,
   settings?: Partial<Settings>
 ): string => {
-  const renderedHtml = parseEnhancedMarkdown(markdown);
+  const renderedHtml = parseEnhancedMarkdown(markdown, { mode: 'preview' });
   return renderStyledHtmlFragment(renderedHtml, template, settings);
 };
 

@@ -142,6 +142,48 @@ function highlightCode(code: string, lang: string): string {
   return escapeHtml(code);
 }
 
+type MarkdownRenderMode = 'preview' | 'wechat';
+
+interface ParseMarkdownOptions {
+  mode?: MarkdownRenderMode;
+}
+
+export const prismTokenStyleMap: Record<string, string> = {
+  comment: 'color: #5c6370; font-style: italic;',
+  prolog: 'color: #5c6370; font-style: italic;',
+  doctype: 'color: #5c6370; font-style: italic;',
+  cdata: 'color: #5c6370; font-style: italic;',
+  punctuation: 'color: #abb2bf;',
+  property: 'color: #e06c75;',
+  tag: 'color: #e06c75;',
+  boolean: 'color: #e06c75;',
+  number: 'color: #e06c75;',
+  constant: 'color: #e06c75;',
+  symbol: 'color: #e06c75;',
+  deleted: 'color: #e06c75;',
+  selector: 'color: #98c379;',
+  'attr-name': 'color: #98c379;',
+  string: 'color: #98c379;',
+  char: 'color: #98c379;',
+  builtin: 'color: #98c379;',
+  inserted: 'color: #98c379;',
+  operator: 'color: #56b6c2;',
+  entity: 'color: #56b6c2;',
+  url: 'color: #56b6c2;',
+  atrule: 'color: #c678dd;',
+  'attr-value': 'color: #c678dd;',
+  keyword: 'color: #c678dd;',
+  function: 'color: #61afef;',
+  'class-name': 'color: #61afef;',
+  regex: 'color: #e5c07b;',
+  important: 'color: #e5c07b;',
+  variable: 'color: #e5c07b;',
+};
+
+const previewPrismTokenCss = Object.entries(prismTokenStyleMap)
+  .map(([token, style]) => `.token.${token} { ${style} }`)
+  .join('\n');
+
 // KaTeX 公式渲染
 function renderKatex(formula: string, displayMode: boolean): string {
   try {
@@ -248,13 +290,15 @@ function processCodeBlocks(html: string): string {
 }
 
 // 主解析函数
-export function parseEnhancedMarkdown(markdown: string): string {
+export function parseEnhancedMarkdown(markdown: string, options: ParseMarkdownOptions = {}): string {
+  const { mode = 'preview' } = options;
+
   // 1. 预处理：提取特殊块
   const { processed, mathBlocks, mermaidBlocks } = preprocessMarkdown(markdown);
 
   // 2. 解析 Markdown（使用默认配置）
   const html = marked(processed, {
-    breaks: true,
+    breaks: mode === 'preview',
     gfm: true,
   }) as string;
 
@@ -281,20 +325,9 @@ export function getEnhancedStyles(): string {
       background: #282c34;
       overflow: hidden;
     }
-    .code-block::before {
-      content: attr(data-language);
-      position: absolute;
-      top: 8px;
-      right: 12px;
-      font-size: 12px;
-      color: #abb2bf;
-      text-transform: uppercase;
-      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-    }
     .code-block code {
       display: block;
       padding: 16px;
-      padding-top: 32px;
       overflow-x: auto;
       font-family: 'Fira Code', 'Monaco', 'Menlo', monospace;
       font-size: 14px;
@@ -302,14 +335,7 @@ export function getEnhancedStyles(): string {
       color: #abb2bf;
     }
     /* Prism 语法高亮颜色 */
-    .token.comment, .token.prolog, .token.doctype, .token.cdata { color: #5c6370; font-style: italic; }
-    .token.punctuation { color: #abb2bf; }
-    .token.property, .token.tag, .token.boolean, .token.number, .token.constant, .token.symbol, .token.deleted { color: #e06c75; }
-    .token.selector, .token.attr-name, .token.string, .token.char, .token.builtin, .token.inserted { color: #98c379; }
-    .token.operator, .token.entity, .token.url, .language-css .token.string, .style .token.string { color: #56b6c2; }
-    .token.atrule, .token.attr-value, .token.keyword { color: #c678dd; }
-    .token.function, .token.class-name { color: #61afef; }
-    .token.regex, .token.important, .token.variable { color: #e5c07b; }
+    ${previewPrismTokenCss}
 
     /* KaTeX 公式样式 */
     .katex-block {

@@ -13,7 +13,6 @@ export const xiaohongshuSizeOptions = [
 export const xiaohongshuSplitOptions = [
   { value: 'hr' as XiaohongshuSplitMode, label: '按分割线', description: '根据 --- 分割线切分' },
   { value: 'auto' as XiaohongshuSplitMode, label: '自适应', description: '根据内容高度自动分割' },
-  { value: 'none' as XiaohongshuSplitMode, label: '不分割', description: '导出为单张长图' },
 ];
 
 // 延迟函数
@@ -315,18 +314,13 @@ export const exportAsXiaohongshuImage = async (
       }
 
       case 'auto':
+      default:
         // 自适应分割（按高度）
         if (typeof sizeConfig.height === 'number') {
           sections = splitContentByHeight(element, sizeConfig.height);
         } else {
           sections = [element];
         }
-        break;
-
-      case 'none':
-      default:
-        // 不分割
-        sections = [element];
         break;
     }
 

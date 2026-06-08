@@ -10,7 +10,7 @@ export type OutputFormat =
 export type XiaohongshuSize = 'vertical' | 'square' | 'long';
 
 // 小红书分割模式
-export type XiaohongshuSplitMode = 'hr' | 'auto' | 'none';
+export type XiaohongshuSplitMode = 'hr' | 'auto';
 
 export interface XiaohongshuSizeOption {
   value: XiaohongshuSize;

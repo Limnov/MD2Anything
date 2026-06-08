@@ -42,6 +42,7 @@ import { getTemplateById, getTemplatesByFormat } from './templates';
 import { getSampleByFormat } from './utils/sampleContent';
 import { getTextStats } from './utils/stats';
 import type { OutputFormat, XiaohongshuSize, XiaohongshuSplitMode } from './types';
+import type { MarkdownEditorHandle } from './components/MarkdownEditor';
 
 import './App.css';
 
@@ -100,6 +101,7 @@ const App: React.FC = () => {
   // 预览区域引用
   const previewRef = useRef<HTMLDivElement>(null);
   const previewScrollRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<MarkdownEditorHandle>(null);
   const isSyncingScroll = useRef(false);
 
   // 当前模板
@@ -130,24 +132,27 @@ const App: React.FC = () => {
 
   // 协同滚动效果
   useEffect(() => {
-    // 使用 querySelector 获取实际的 textarea 元素
-    const editorEl = document.querySelector('.md-editor-textarea') as HTMLTextAreaElement | null;
+    const editorEl = editorRef.current?.getTextarea() ?? null;
     const previewEl = previewScrollRef.current;
     if (!editorEl || !previewEl) return;
 
     const handleEditorScroll = () => {
       if (isSyncingScroll.current) return;
       isSyncingScroll.current = true;
-      const scrollRatio = editorEl.scrollTop / (editorEl.scrollHeight - editorEl.clientHeight);
-      previewEl.scrollTop = scrollRatio * (previewEl.scrollHeight - previewEl.clientHeight);
+      const editorRange = editorEl.scrollHeight - editorEl.clientHeight;
+      const previewRange = previewEl.scrollHeight - previewEl.clientHeight;
+      const scrollRatio = editorRange > 0 ? editorEl.scrollTop / editorRange : 0;
+      previewEl.scrollTop = scrollRatio * Math.max(previewRange, 0);
       requestAnimationFrame(() => { isSyncingScroll.current = false; });
     };
 
     const handlePreviewScroll = () => {
       if (isSyncingScroll.current) return;
       isSyncingScroll.current = true;
-      const scrollRatio = previewEl.scrollTop / (previewEl.scrollHeight - previewEl.clientHeight);
-      editorEl.scrollTop = scrollRatio * (editorEl.scrollHeight - editorEl.clientHeight);
+      const previewRange = previewEl.scrollHeight - previewEl.clientHeight;
+      const editorRange = editorEl.scrollHeight - editorEl.clientHeight;
+      const scrollRatio = previewRange > 0 ? previewEl.scrollTop / previewRange : 0;
+      editorEl.scrollTop = scrollRatio * Math.max(editorRange, 0);
       requestAnimationFrame(() => { isSyncingScroll.current = false; });
     };
 
@@ -157,7 +162,7 @@ const App: React.FC = () => {
       editorEl.removeEventListener('scroll', handleEditorScroll);
       previewEl.removeEventListener('scroll', handlePreviewScroll);
     };
-  }, []);
+  }, [markdownContent]);
 
   // 导出处理
   const handleExport = useCallback(async () => {
@@ -386,6 +391,7 @@ const App: React.FC = () => {
               </div>
               <div style={{ flex: 1, overflow: 'auto' }}>
                 <MarkdownEditor
+                  ref={editorRef}
                   value={markdownContent}
                   onChange={setMarkdownContent}
                   placeholder="在此输入 Markdown 内容..."
@@ -529,7 +535,7 @@ const App: React.FC = () => {
                 style={{
                   flex: 1,
                   overflow: 'auto',
-                  background: settings.backgroundColor || '#fafafa',
+                  background: '#fafafa',
                 }}
               >
                 <Preview
@@ -539,6 +545,7 @@ const App: React.FC = () => {
                   backgroundColor={settings.backgroundColor}
                   margin={settings.margin}
                   fixedSize={outputFormat === 'xiaohongshu' ? xiaohongshuPreviewSize : undefined}
+                  splitMode={outputFormat === 'xiaohongshu' ? xiaohongshuSplitMode : undefined}
                 />
               </div>
             </div>
