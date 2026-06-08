@@ -1,16 +1,9 @@
 import { Router } from 'express';
-import { marked } from 'marked';
 import { templates, getTemplateById } from '../templates';
-import { applyStyles, generateInlineStyles } from '../utils/styling';
+import { renderStyledMarkdown, renderInlineStyledMarkdown } from '../utils/styling';
 import { generateEmailHtml } from '../utils/email';
 
 const router = Router();
-
-// 配置 marked
-marked.setOptions({
-  breaks: true,
-  gfm: true,
-});
 
 /**
  * @route POST /api/convert/html
@@ -41,8 +34,7 @@ router.post('/html', (req, res) => {
       backgroundColor: backgroundColor || '#ffffff',
     };
 
-    const rawHtml = marked(markdown) as string;
-    const styledHtml = applyStyles(rawHtml, template, settings);
+    const styledHtml = renderStyledMarkdown(markdown, template, settings);
 
     res.json({
       success: true,
@@ -116,7 +108,7 @@ router.post('/email', (req, res) => {
  */
 router.post('/wechat', (req, res) => {
   try {
-    const { markdown, templateId, fontSize, margin } = req.body;
+    const { markdown, templateId, fontSize, margin, backgroundColor } = req.body;
 
     if (!markdown) {
       return res.status(400).json({
@@ -136,10 +128,10 @@ router.post('/wechat', (req, res) => {
     const settings = {
       fontSize: fontSize || 15,
       margin: margin || 24,
+      backgroundColor: backgroundColor || '#ffffff',
     };
 
-    const rawHtml = marked(markdown) as string;
-    const inlineStyledHtml = generateInlineStyles(rawHtml, template, settings);
+    const inlineStyledHtml = renderInlineStyledMarkdown(markdown, template, settings);
 
     res.json({
       success: true,
@@ -163,7 +155,7 @@ router.post('/wechat', (req, res) => {
  * @route POST /api/convert/plain
  * @desc Convert Markdown to plain HTML (no styles)
  */
-router.post('/plain', (req, res) => {
+router.post('/plain', async (req, res) => {
   try {
     const { markdown } = req.body;
 
@@ -174,7 +166,8 @@ router.post('/plain', (req, res) => {
       });
     }
 
-    const html = marked(markdown) as string;
+    const { parseEnhancedMarkdown } = await import('../../src/utils/enhancedMarkdown');
+    const html = parseEnhancedMarkdown(markdown);
 
     res.json({
       success: true,

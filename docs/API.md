@@ -338,20 +338,24 @@ print(result['data']['html'])
 
 | ID | 名称 | 描述 |
 |----|------|------|
-| `general-modern` | 现代简约 | 简洁现代的风格 |
-| `general-github` | GitHub 风格 | GitHub README 风格 |
+| `general-modern` | 现代简约 | 简洁现代的黑白灰配色 |
+| `general-ocean` | 深海蓝 | 深邃优雅的蓝色主题 |
+| `general-forest` | 森林绿 | 清新自然的绿色主题 |
+| `general-vintage` | 复古书卷 | 典雅复古的书籍风格 |
+| `general-purple` | 星空紫 | 神秘优雅的紫色主题 |
+| `general-dark` | 暗夜黑 | 护眼舒适的深色主题 |
 
 ### 微信模板
 
 | ID | 名称 | 描述 |
 |----|------|------|
-| `wechat-tech` | 技术文章 | 适合技术博客 |
-| `wechat-story` | 情感故事 | 适合散文、故事 |
-| `wechat-news` | 新闻资讯 | 适合新闻、公告 |
-| `wechat-product` | 产品介绍 | 适合产品发布 |
-| `wechat-tutorial` | 教程指南 | 适合操作教程 |
-| `wechat-business` | 商务报告 | 适合商业分析 |
-| `wechat-lifestyle` | 生活分享 | 适合日常分享 |
+| `wechat-tech` | 技术文章 | 适合技术博客、代码教程 |
+| `wechat-story` | 情感故事 | 适合散文、故事、情感类文章 |
+| `wechat-news` | 新闻资讯 | 适合新闻、公告、快讯 |
+| `wechat-product` | 产品介绍 | 适合产品发布、功能介绍 |
+| `wechat-tutorial` | 教程指南 | 适合操作教程、步骤说明 |
+| `wechat-business` | 商务报告 | 适合商业分析、工作汇报 |
+| `wechat-lifestyle` | 生活分享 | 适合日常、旅行、美食分享 |
 | `wechat-dark` | 暗夜模式 | 护眼暗色主题 |
 
 ### 邮件模板
@@ -360,6 +364,9 @@ print(result['data']['html'])
 |----|------|------|
 | `email-business` | 商务简约 | 专业商务邮件风格 |
 | `email-newsletter` | 新闻简报 | 适合邮件简报、周刊 |
+| `email-marketing` | 营销推广 | 适合产品推广、营销活动 |
+| `email-warm` | 温馨问候 | 适合节日问候、感谢信 |
+| `email-minimal` | 极简清新 | 简洁现代，适合日常邮件 |
 
 ---
 
@@ -368,6 +375,7 @@ print(result['data']['html'])
 - **请求体大小**：最大 10MB
 - **请求超时**：30 秒
 - **并发限制**：无限制（本地部署）
+- **安全限制**：服务端会复用统一 Markdown 渲染与清洗逻辑，危险标签、事件属性和 `javascript:` 等协议会被过滤；手工回归用例见 [SECURITY_REGRESSION.md](./SECURITY_REGRESSION.md)
 
 ---
 

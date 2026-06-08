@@ -137,7 +137,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
                   </Paragraph>
                   <Text type="secondary" style={{ fontSize: 12 }}>
                     <ClockCircleOutlined style={{ marginRight: 4 }} />
-                    {formatTime(item.createdAt)}
+                    最近保存 {formatTime(item.updatedAt)}
                   </Text>
                 </div>
               }

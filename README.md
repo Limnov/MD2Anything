@@ -43,9 +43,9 @@
 
 - **微信模板**（8款）：技术文章、情感故事、新闻资讯、产品介绍、教程指南、商务报告、生活分享、暗夜模式
 - **小红书模板**（6款）：清新简约、甜美粉色、活力橙黄、自然清新、梦幻紫韵、暗黑高级
-- **邮件模板**（2款）：商务简约、新闻简报
+- **邮件模板**（5款）：商务简约、新闻简报、营销推广、温馨问候、极简清新
 - **简历模板**（5款）：经典专业、极简灰调、优雅墨绿、暖橙活力、典雅紫韵
-- **通用模板**（2款）：现代简约、GitHub风格
+- **通用模板**（6款）：现代简约、深海蓝、森林绿、复古书卷、星空紫、暗夜黑
 
 ### ⚙️ 自定义设置
 
@@ -210,6 +210,7 @@ curl -X POST http://localhost:3001/api/convert/html \
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | 架构设计文档 |
 | [docs/TEMPLATE_DEVELOPMENT.md](docs/TEMPLATE_DEVELOPMENT.md) | 模板开发详细指南 |
 | [docs/API.md](docs/API.md) | API 接口详细文档 |
+| [docs/SECURITY_REGRESSION.md](docs/SECURITY_REGRESSION.md) | 手工安全回归用例与检查清单 |
 
 ---
 

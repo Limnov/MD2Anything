@@ -1,5 +1,6 @@
 // 样式工具函数 - 服务端使用
 import type { Template } from '../templates';
+import { parseEnhancedMarkdown } from '../../src/utils/enhancedMarkdown';
 
 interface Settings {
   fontSize?: number;
@@ -47,6 +48,15 @@ export const applyStyles = (
 </html>`;
 };
 
+export const renderStyledMarkdown = (
+  markdown: string,
+  template: Template,
+  settings?: Settings
+): string => {
+  const html = parseEnhancedMarkdown(markdown);
+  return applyStyles(html, template, settings);
+};
+
 /**
  * 从模板样式生成 CSS
  */
@@ -66,9 +76,9 @@ const generateCSSFromTemplate = (
     h1: styles.h1 || '',
     h2: styles.h2 || '',
     h3: styles.h3 || '',
-    h4: `font-size: 1.1em; font-weight: bold; margin: 16px 0 8px 0;`,
-    h5: `font-size: 1em; font-weight: bold; margin: 14px 0 6px 0;`,
-    h6: `font-size: 0.9em; font-weight: bold; margin: 12px 0 4px 0; color: #6b7280;`,
+    h4: 'font-size: 1.1em; font-weight: bold; margin: 16px 0 8px 0;',
+    h5: 'font-size: 1em; font-weight: bold; margin: 14px 0 6px 0;',
+    h6: 'font-size: 0.9em; font-weight: bold; margin: 12px 0 4px 0; color: #6b7280;',
     p: styles.p || '',
     blockquote: styles.blockquote || '',
     code: styles.code || '',
@@ -109,25 +119,25 @@ export const generateInlineStyles = (
 
   // 样式映射
   const styleMap: Record<string, string> = {
-    'h1': styles.h1 || '',
-    'h2': styles.h2 || '',
-    'h3': styles.h3 || '',
-    'h4': `font-size: 1.1em; font-weight: bold; margin: 16px 0 8px 0; color: #374151;`,
-    'h5': `font-size: 1em; font-weight: bold; margin: 14px 0 6px 0; color: #374151;`,
-    'h6': `font-size: 0.9em; font-weight: bold; margin: 12px 0 4px 0; color: #6b7280;`,
-    'p': styles.p || `margin: 0.8em 0; font-size: ${fontSize}px;`,
-    'blockquote': styles.blockquote || '',
-    'code': styles.code || '',
-    'pre': styles.pre || '',
-    'ul': styles.ul || '',
-    'ol': styles.ol || '',
-    'li': styles.li || '',
-    'a': styles.a || '',
-    'table': styles.table || '',
-    'th': styles.th || '',
-    'td': styles.td || '',
-    'hr': styles.hr || '',
-    'img': 'max-width: 100%; height: auto;',
+    h1: styles.h1 || '',
+    h2: styles.h2 || '',
+    h3: styles.h3 || '',
+    h4: 'font-size: 1.1em; font-weight: bold; margin: 16px 0 8px 0; color: #374151;',
+    h5: 'font-size: 1em; font-weight: bold; margin: 14px 0 6px 0; color: #374151;',
+    h6: 'font-size: 0.9em; font-weight: bold; margin: 12px 0 4px 0; color: #6b7280;',
+    p: styles.p || `margin: 0.8em 0; font-size: ${fontSize}px;`,
+    blockquote: styles.blockquote || '',
+    code: styles.code || '',
+    pre: styles.pre || '',
+    ul: styles.ul || '',
+    ol: styles.ol || '',
+    li: styles.li || '',
+    a: styles.a || '',
+    table: styles.table || '',
+    th: styles.th || '',
+    td: styles.td || '',
+    hr: styles.hr || '',
+    img: 'max-width: 100%; height: auto;',
   };
 
   let result = html;
@@ -148,4 +158,13 @@ export const generateInlineStyles = (
   // 包装在容器中
   const containerStyle = styles.container || '';
   return `<div style="${containerStyle} font-size: ${fontSize}px;">${result}</div>`;
+};
+
+export const renderInlineStyledMarkdown = (
+  markdown: string,
+  template: Template,
+  settings?: Settings
+): string => {
+  const html = parseEnhancedMarkdown(markdown);
+  return generateInlineStyles(html, template, settings);
 };

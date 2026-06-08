@@ -39,7 +39,6 @@ interface StoreState {
 }
 
 const defaultSettings: Settings = {
-  themeStyle: 'default',
   fontSize: 15,
   backgroundColor: 'transparent',
   margin: 24,

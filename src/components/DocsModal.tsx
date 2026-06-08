@@ -121,7 +121,7 @@ const DocsModal: React.FC<DocsModalProps> = ({ open, onClose }) => {
             size="small"
             dataSource={[
               '选择「邮件」格式',
-              '选择邮件模板（商务简约/新闻简报）',
+              '选择邮件模板（商务简约 / 新闻简报 / 营销推广 / 温馨问候 / 极简清新）',
               '输入内容',
               '点击「复制邮件HTML」，粘贴到邮件编辑器',
             ]}

@@ -1,12 +1,24 @@
-import { marked } from 'marked';
 import type { Template, Settings } from '../../types';
 import { getTemplateById } from '../../templates';
+import { parseEnhancedMarkdown } from '../enhancedMarkdown';
 
-// 配置marked选项
-marked.setOptions({
-  breaks: true,
-  gfm: true,
-});
+export const renderStyledHtmlFragment = (
+  html: string,
+  template: Template,
+  settings?: Partial<Settings>
+): string => {
+  const styles = template.styles;
+  const fontSize = settings?.fontSize || 15;
+  const margin = settings?.margin ?? 24;
+  const bgColor = settings?.backgroundColor || '#ffffff';
+  const bgStyle = bgColor === 'transparent' ? '' : `background-color: ${bgColor};`;
+
+  return `
+    <div style="font-size: ${fontSize}px; padding: ${margin}px; ${bgStyle} ${styles.container || ''}" class="md-content">
+      ${html}
+    </div>
+  `;
+};
 
 // 将Markdown转换为带样式的HTML
 export const markdownToStyledHTML = (
@@ -14,34 +26,8 @@ export const markdownToStyledHTML = (
   template: Template,
   settings?: Partial<Settings>
 ): string => {
-  let rawHtml = marked(markdown) as string;
-
-  // 移除空的表格行（可能由 markdown 解析产生）
-  rawHtml = rawHtml.replace(/<tr>\s*<\/tr>/g, '');
-  rawHtml = rawHtml.replace(/<tr>\s*<td>\s*<\/td>\s*<\/tr>/g, '');
-  rawHtml = rawHtml.replace(/<tr>\s*<td\s*\/>\s*<\/tr>/g, '');
-  // 移除空的 thead/tbody
-  rawHtml = rawHtml.replace(/<thead>\s*<\/thead>/g, '');
-  rawHtml = rawHtml.replace(/<tbody>\s*<\/tbody>/g, '');
-  // 移除表格前可能存在的空段落
-  rawHtml = rawHtml.replace(/<p>\s*<\/p>\s*<table/g, '<table');
-  rawHtml = rawHtml.replace(/<p\s*\/>\s*<table/g, '<table');
-
-  const styles = template.styles;
-
-  // 添加字体大小、边距和背景颜色
-  const fontSize = settings?.fontSize || 15;
-  const margin = settings?.margin ?? 24;
-  const bgColor = settings?.backgroundColor || '#ffffff';
-  const bgStyle = bgColor === 'transparent' ? '' : `background-color: ${bgColor};`;
-
-  const styledHtml = `
-    <div style="font-size: ${fontSize}px; padding: ${margin}px; ${bgStyle} ${styles.container || ''}" class="md-content">
-      ${rawHtml}
-    </div>
-  `;
-
-  return styledHtml;
+  const renderedHtml = parseEnhancedMarkdown(markdown);
+  return renderStyledHtmlFragment(renderedHtml, template, settings);
 };
 
 // 导出为HTML文件

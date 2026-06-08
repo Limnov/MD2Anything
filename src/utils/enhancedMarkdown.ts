@@ -6,6 +6,7 @@
 import { marked } from 'marked';
 import katex from 'katex';
 import Prism from 'prismjs';
+import sanitizeHtml from 'sanitize-html';
 
 // 导入 Prism 语言支持
 import 'prismjs/components/prism-javascript';
@@ -43,6 +44,76 @@ const languageMap: Record<string, string> = {
   dockerfile: 'docker',
 };
 
+const sanitizeConfig: sanitizeHtml.IOptions = {
+  allowedTags: [
+    ...sanitizeHtml.defaults.allowedTags,
+    'img',
+    'h1',
+    'h2',
+    'h3',
+    'h4',
+    'h5',
+    'h6',
+    'span',
+    'div',
+    'hr',
+    'table',
+    'thead',
+    'tbody',
+    'tr',
+    'th',
+    'td',
+    'del',
+    'input',
+  ],
+  allowedAttributes: {
+    a: ['href', 'name', 'target', 'rel'],
+    img: ['src', 'alt', 'title'],
+    code: ['class'],
+    pre: ['class', 'data-language'],
+    div: ['class'],
+    span: ['class'],
+    input: ['type', 'checked', 'disabled'],
+  },
+  allowedSchemes: ['http', 'https', 'mailto', 'tel'],
+  allowedSchemesByTag: {
+    img: ['http', 'https', 'data'],
+  },
+  transformTags: {
+    a: (_tagName, attribs) => ({
+      tagName: 'a',
+      attribs: {
+        ...attribs,
+        rel: 'noopener noreferrer',
+      },
+    }),
+  },
+};
+
+export function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function sanitizeRenderedHtml(html: string): string {
+  return sanitizeHtml(html, sanitizeConfig);
+}
+
+function normalizeRenderedHtml(html: string): string {
+  return html
+    .replace(/<tr>\s*<\/tr>/g, '')
+    .replace(/<tr>\s*<td>\s*<\/td>\s*<\/tr>/g, '')
+    .replace(/<tr>\s*<td\s*\/>\s*<\/tr>/g, '')
+    .replace(/<thead>\s*<\/thead>/g, '')
+    .replace(/<tbody>\s*<\/tbody>/g, '')
+    .replace(/<p>\s*<\/p>\s*<table/g, '<table')
+    .replace(/<p\s*\/>\s*<table/g, '<table');
+}
+
 // 获取 Prism 语言
 function getPrismLanguage(lang: string): string {
   const normalized = lang.toLowerCase().trim();
@@ -68,10 +139,7 @@ function highlightCode(code: string, lang: string): string {
   }
 
   // 不支持的语言，转义 HTML 并返回
-  return code
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+  return escapeHtml(code);
 }
 
 // KaTeX 公式渲染
@@ -85,7 +153,7 @@ function renderKatex(formula: string, displayMode: boolean): string {
     });
   } catch (e) {
     console.error('KaTeX error:', e);
-    return `<span style="color: red;">[公式错误: ${formula}]</span>`;
+    return `<span class="katex-error">[公式错误: ${escapeHtml(formula)}]</span>`;
   }
 }
 
@@ -109,7 +177,7 @@ function preprocessMarkdown(markdown: string): {
   });
 
   // 提取行内公式 $...$（但不匹配 $$ 或货币符号）
-  processed = processed.replace(/(?<!\$)\$(?!\$)([^\$\n]+?)\$(?!\$)/g, (_, formula) => {
+  processed = processed.replace(/(?<!\$)\$(?!\$)([^$\n]+?)\$(?!\$)/g, (_, formula) => {
     const placeholder = `%%MATH_INLINE_${counter++}%%`;
     mathBlocks.set(placeholder, { formula: formula.trim(), display: false });
     return placeholder;
@@ -144,7 +212,8 @@ function postprocessMarkdown(
 
   // 恢复 Mermaid 图表
   mermaidBlocks.forEach((code, placeholder) => {
-    const mermaidDiv = `<div class="mermaid-diagram" data-mermaid="${encodeURIComponent(code)}"><pre class="mermaid">${code}</pre></div>`;
+    const escapedCode = escapeHtml(code);
+    const mermaidDiv = `<div class="mermaid-diagram" data-mermaid="${encodeURIComponent(code)}"><pre class="mermaid">${escapedCode}</pre></div>`;
     result = result.replace(placeholder, mermaidDiv);
   });
 
@@ -169,7 +238,7 @@ function processCodeBlocks(html: string): string {
 
       // 如果是 mermaid，保持原样（由预处理处理）
       if (language === 'mermaid') {
-        return `<div class="mermaid-diagram"><pre class="mermaid">${decodedCode}</pre></div>`;
+        return `<div class="mermaid-diagram"><pre class="mermaid">${escapeHtml(decodedCode)}</pre></div>`;
       }
 
       const highlighted = highlightCode(decodedCode, language);
@@ -192,10 +261,13 @@ export function parseEnhancedMarkdown(markdown: string): string {
   // 3. 处理代码块高亮
   const withCodeHighlight = processCodeBlocks(html);
 
-  // 4. 后处理：恢复特殊块
-  const result = postprocessMarkdown(withCodeHighlight, mathBlocks, mermaidBlocks);
+  // 4. 清洗用户输入产生的 HTML
+  const sanitizedHtml = sanitizeRenderedHtml(withCodeHighlight);
 
-  return result;
+  // 5. 后处理：恢复特殊块
+  const result = postprocessMarkdown(sanitizedHtml, mathBlocks, mermaidBlocks);
+
+  return normalizeRenderedHtml(result);
 }
 
 // 生成增强样式的 CSS
@@ -252,6 +324,10 @@ export function getEnhancedStyles(): string {
     }
     .katex {
       font-size: 1.1em;
+    }
+    .katex-error {
+      color: #cf1322;
+      font-weight: 500;
     }
 
     /* Mermaid 图表样式 */

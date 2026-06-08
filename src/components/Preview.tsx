@@ -1,15 +1,61 @@
 import { forwardRef, useMemo, useEffect, useRef } from 'react';
 import mermaid from 'mermaid';
+import sanitizeHtml from 'sanitize-html';
 import type { Template } from '../types';
-import { parseEnhancedMarkdown, getEnhancedStyles } from '../utils/enhancedMarkdown';
+import { parseEnhancedMarkdown, getEnhancedStyles, escapeHtml } from '../utils/enhancedMarkdown';
 
 // 初始化 Mermaid
 mermaid.initialize({
   startOnLoad: false,
   theme: 'default',
-  securityLevel: 'loose',
+  securityLevel: 'strict',
   fontFamily: 'trebuchet ms, verdana, arial, sans-serif',
 });
+
+const mermaidSvgSanitizeConfig: sanitizeHtml.IOptions = {
+  allowedTags: [
+    'svg',
+    'g',
+    'path',
+    'rect',
+    'circle',
+    'ellipse',
+    'line',
+    'polyline',
+    'polygon',
+    'text',
+    'tspan',
+    'defs',
+    'marker',
+    'pattern',
+    'mask',
+    'clipPath',
+    'foreignObject',
+    'title',
+    'desc',
+  ],
+  allowedAttributes: {
+    svg: ['viewBox', 'width', 'height', 'role', 'aria-roledescription', 'xmlns'],
+    g: ['transform', 'class', 'fill', 'stroke', 'stroke-width'],
+    path: ['d', 'fill', 'stroke', 'stroke-width', 'marker-start', 'marker-mid', 'marker-end', 'class', 'transform'],
+    rect: ['x', 'y', 'width', 'height', 'rx', 'ry', 'fill', 'stroke', 'stroke-width', 'class', 'transform'],
+    circle: ['cx', 'cy', 'r', 'fill', 'stroke', 'stroke-width', 'class', 'transform'],
+    ellipse: ['cx', 'cy', 'rx', 'ry', 'fill', 'stroke', 'stroke-width', 'class', 'transform'],
+    line: ['x1', 'y1', 'x2', 'y2', 'stroke', 'stroke-width', 'class', 'transform'],
+    polyline: ['points', 'fill', 'stroke', 'stroke-width', 'class', 'transform'],
+    polygon: ['points', 'fill', 'stroke', 'stroke-width', 'class', 'transform'],
+    text: ['x', 'y', 'dx', 'dy', 'text-anchor', 'class', 'style', 'fill', 'font-size', 'font-family', 'transform'],
+    tspan: ['x', 'y', 'dx', 'dy', 'class', 'style', 'fill', 'font-size', 'font-family'],
+    defs: [],
+    marker: ['id', 'markerWidth', 'markerHeight', 'refX', 'refY', 'orient', 'viewBox', 'markerUnits'],
+    pattern: ['id', 'width', 'height', 'patternUnits', 'patternTransform'],
+    mask: ['id', 'x', 'y', 'width', 'height', 'maskUnits'],
+    clipPath: ['id'],
+    foreignObject: ['x', 'y', 'width', 'height'],
+    title: [],
+    desc: [],
+  },
+};
 
 interface PreviewProps {
   markdown: string;
@@ -26,10 +72,11 @@ const Preview = forwardRef<HTMLDivElement, PreviewProps>(
     const containerRef = useRef<HTMLDivElement>(null);
 
     // 使用增强的 Markdown 解析器
-    const htmlContent = useMemo(() => {
-      mermaidRenderedRef.current = false; // 标记需要重新渲染 Mermaid
-      return parseEnhancedMarkdown(markdown);
-    }, [markdown]);
+    const htmlContent = useMemo(() => parseEnhancedMarkdown(markdown), [markdown]);
+
+    useEffect(() => {
+      mermaidRenderedRef.current = false;
+    }, [htmlContent]);
 
     // 渲染 Mermaid 图表
     useEffect(() => {
@@ -50,13 +97,13 @@ const Preview = forwardRef<HTMLDivElement, PreviewProps>(
           const { svg } = await mermaid.render(id, code);
           const wrapper = el.parentElement;
           if (wrapper) {
-            wrapper.innerHTML = svg;
+            wrapper.innerHTML = sanitizeHtml(svg, mermaidSvgSanitizeConfig);
           }
         } catch (e) {
           console.error('Mermaid render error:', e);
           const wrapper = el.parentElement;
           if (wrapper) {
-            wrapper.innerHTML = `<pre style="color: red; text-align: left;">Mermaid 语法错误:\n${code}</pre>`;
+            wrapper.innerHTML = `<pre style="color: red; text-align: left;">Mermaid 语法错误:\n${escapeHtml(code)}</pre>`;
           }
         }
       });

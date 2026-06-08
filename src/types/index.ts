@@ -28,12 +28,8 @@ export interface ThemeStyleOption {
   description: string;
 }
 
-// 主题风格类型
-export type ThemeStyle = 'default' | 'warm' | 'cool' | 'elegant' | 'dark' | 'nature';
-
 // 设置类型
 export interface Settings {
-  themeStyle: ThemeStyle;
   fontSize: number; // px值
   backgroundColor: string;
   margin: number; // 边距 px值

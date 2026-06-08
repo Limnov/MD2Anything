@@ -1,11 +1,5 @@
-import { marked } from 'marked';
 import type { Template, Settings } from '../../types';
-
-// 配置marked选项
-marked.setOptions({
-  breaks: true,
-  gfm: true,
-});
+import { parseEnhancedMarkdown } from '../enhancedMarkdown';
 
 /**
  * 将Markdown转换为带有完整内联样式的HTML
@@ -22,7 +16,7 @@ export const getInlineStyledHTML = (
   template: Template,
   settings?: Partial<Settings>
 ): string => {
-  let rawHtml = marked(markdown) as string;
+  let rawHtml = parseEnhancedMarkdown(markdown);
   const styles = template.styles;
 
   // ========== 第一步：清理HTML ==========
@@ -152,9 +146,9 @@ export const getInlineStyledHTML = (
   // 表格样式需要特别注意，确保没有多余的结构
   styledHtml = styledHtml.replace(/<table>/gi, `<table style="${getStyle('table')}">`);
   styledHtml = styledHtml.replace(/<table /gi, `<table style="${getStyle('table')}" `);
-  styledHtml = styledHtml.replace(/<thead>/gi, `<thead style="">`);
-  styledHtml = styledHtml.replace(/<tbody>/gi, `<tbody style="">`);
-  styledHtml = styledHtml.replace(/<tr>/gi, `<tr style="">`);
+  styledHtml = styledHtml.replace(/<thead>/gi, '<thead style="">');
+  styledHtml = styledHtml.replace(/<tbody>/gi, '<tbody style="">');
+  styledHtml = styledHtml.replace(/<tr>/gi, '<tr style="">');
   styledHtml = styledHtml.replace(/<th>/gi, `<th style="${getStyle('th')}">`);
   styledHtml = styledHtml.replace(/<th /gi, `<th style="${getStyle('th')}" `);
   styledHtml = styledHtml.replace(/<td>/gi, `<td style="${getStyle('td')}">`);
@@ -169,12 +163,12 @@ export const getInlineStyledHTML = (
     // 将深色背景改为浅色
     styledHtml = styledHtml.replace(
       /style="([^"]*)background-color:\s*#282c34;([^"]*)"/gi,
-      `style="$1background-color: #f5f5f5;$2"`
+      'style="$1background-color: #f5f5f5;$2"'
     );
     // 调整 th 的白色文字
     styledHtml = styledHtml.replace(
       /<th style="([^"]*?)color:\s*white;?([^"]*)" /gi,
-      `<th style="$1color: #333;$2" `
+      '<th style="$1color: #333;$2" '
     );
   }
 

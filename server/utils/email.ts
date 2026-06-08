@@ -1,11 +1,26 @@
 // 邮件 HTML 生成工具 - 服务端使用
-import { marked } from 'marked';
 import type { Template } from '../templates';
+import { escapeHtml, parseEnhancedMarkdown } from '../../src/utils/enhancedMarkdown';
 
 interface Settings {
   fontSize?: number;
   backgroundColor?: string;
 }
+
+const getEmailPreviewText = (markdown: string): string => {
+  const plainText = markdown
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/`([^`]*)`/g, '$1')
+    .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '$1')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/[#>*_~-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const excerpt = plainText.slice(0, 100);
+  return escapeHtml(excerpt ? `${excerpt}...` : '');
+};
 
 /**
  * 生成邮件兼容的 HTML
@@ -19,10 +34,11 @@ export const generateEmailHtml = (
   template: Template,
   settings?: Settings
 ): string => {
-  const htmlContent = marked(markdown) as string;
+  const htmlContent = parseEnhancedMarkdown(markdown);
   const styles = template.styles;
   const fontSize = settings?.fontSize || 16;
   const bgColor = settings?.backgroundColor || '#ffffff';
+  const previewText = getEmailPreviewText(markdown);
 
   const emailHTML = `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -75,7 +91,7 @@ export const generateEmailHtml = (
 <body style="margin: 0; padding: 20px 0; background-color: ${bgColor}; width: 100% !important;">
   <!-- 预览文本 -->
   <div class="preview-text" style="display: none; max-height: 0; overflow: hidden;">
-    ${escapeHtml(markdown.substring(0, 100))}...
+    ${previewText}
   </div>
 
   <!-- 主容器 -->
@@ -103,43 +119,30 @@ export const generateEmailHtml = (
 };
 
 /**
- * 转义 HTML 特殊字符
- */
-const escapeHtml = (text: string): string => {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;')
-    .replace(/[#*`]/g, '');
-};
-
-/**
  * 为 HTML 元素应用内联样式
  */
 const applyInlineStyles = (html: string, styles: Record<string, string>): string => {
   // 样式映射
   const styleMap: Record<string, string> = {
-    'h1': styles.h1 || '',
-    'h2': styles.h2 || '',
-    'h3': styles.h3 || '',
-    'h4': 'font-size: 1.1em; font-weight: bold; margin: 16px 0 8px 0; color: #374151;',
-    'h5': 'font-size: 1em; font-weight: bold; margin: 14px 0 6px 0; color: #374151;',
-    'h6': 'font-size: 0.9em; font-weight: bold; margin: 12px 0 4px 0; color: #6b7280;',
-    'p': styles.p || '',
-    'blockquote': styles.blockquote || '',
-    'code': styles.code || '',
-    'pre': styles.pre || '',
-    'ul': styles.ul || '',
-    'ol': styles.ol || '',
-    'li': styles.li || '',
-    'img': 'max-width: 100%; height: auto;',
-    'a': styles.a || '',
-    'table': styles.table || '',
-    'th': styles.th || '',
-    'td': styles.td || '',
-    'hr': styles.hr || '',
+    h1: styles.h1 || '',
+    h2: styles.h2 || '',
+    h3: styles.h3 || '',
+    h4: 'font-size: 1.1em; font-weight: bold; margin: 16px 0 8px 0; color: #374151;',
+    h5: 'font-size: 1em; font-weight: bold; margin: 14px 0 6px 0; color: #374151;',
+    h6: 'font-size: 0.9em; font-weight: bold; margin: 12px 0 4px 0; color: #6b7280;',
+    p: styles.p || '',
+    blockquote: styles.blockquote || '',
+    code: styles.code || '',
+    pre: styles.pre || '',
+    ul: styles.ul || '',
+    ol: styles.ol || '',
+    li: styles.li || '',
+    img: styles.img || '',
+    a: styles.a || '',
+    table: styles.table || '',
+    th: styles.th || '',
+    td: styles.td || '',
+    hr: styles.hr || '',
   };
 
   let result = html;
