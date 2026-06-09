@@ -46,7 +46,63 @@ export interface Template {
   styles: Record<string, string>;
 }
 
-// 历史记录
+export type MaterialSourceType = 'markdown' | 'txt';
+export type ParseStatus = 'idle' | 'parsing' | 'ready' | 'error';
+export type VersionSource = 'initial-import' | 'manual-save' | 'autosave' | 'migrated';
+
+export interface MaterialSummary {
+  title: string;
+  brief: string;
+  bullets: string[];
+  keywords: string[];
+  wordCount: number;
+  sourceExcerpt: string;
+}
+
+export interface MaterialVersion {
+  id: string;
+  name: string;
+  markdownContent: string;
+  outputFormat: OutputFormat;
+  selectedTemplateId: string;
+  settings: Settings;
+  source: VersionSource;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface ProjectMaterial {
+  id: string;
+  projectId: string;
+  title: string;
+  sourceFileName: string;
+  sourceFileType: MaterialSourceType;
+  sourceFileMeta: {
+    size: number;
+    lastModified: number;
+  };
+  rawText: string;
+  normalizedMarkdown: string;
+  summary: MaterialSummary;
+  parseStatus: ParseStatus;
+  parseError?: string;
+  versions: MaterialVersion[];
+  currentVersionId: string;
+  createdAt: number;
+  updatedAt: number;
+  lastAutoSave: number;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  description?: string;
+  materialIds: string[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+// 历史记录（兼容现有版本面板 UI）
 export interface HistoryRecord {
   id: string;
   title: string;
@@ -55,6 +111,16 @@ export interface HistoryRecord {
   templateId: string;
   createdAt: number;
   updatedAt: number;
+}
+
+export interface WorkspaceImportResult {
+  sourceFileName: string;
+  sourceFileType: MaterialSourceType;
+  size: number;
+  lastModified: number;
+  rawText: string;
+  normalizedMarkdown: string;
+  summary: MaterialSummary;
 }
 
 // 应用状态

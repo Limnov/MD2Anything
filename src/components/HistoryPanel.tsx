@@ -1,5 +1,5 @@
 import React from 'react';
-import { List, Button, Tag, Popconfirm, Empty, Typography, Space } from 'antd';
+import { List, Button, Popconfirm, Empty, Typography } from 'antd';
 import {
   DeleteOutlined,
   ClockCircleOutlined,
@@ -26,13 +26,11 @@ const formatNames: Record<OutputFormat, string> = {
   general: '通用',
 };
 
-// 格式颜色映射
-const formatColors: Record<OutputFormat, string> = {
-  wechat: 'green',
-  xiaohongshu: 'magenta',
-  email: 'orange',
-  resume: 'blue',
-  general: 'purple',
+const versionSourceNames: Record<string, string> = {
+  'initial-import': '初始导入',
+  'manual-save': '手动保存',
+  autosave: '自动保存',
+  migrated: '迁移版本',
 };
 
 // 格式化时间
@@ -54,6 +52,13 @@ const formatTime = (timestamp: number): string => {
   });
 };
 
+const getSourceLabel = (title: string) => {
+  if (title.includes('自动保存')) return versionSourceNames.autosave;
+  if (title.includes('初始')) return versionSourceNames['initial-import'];
+  if (title.includes('迁移')) return versionSourceNames.migrated;
+  return versionSourceNames['manual-save'];
+};
+
 const HistoryPanel: React.FC<HistoryPanelProps> = ({
   history,
   onLoad,
@@ -64,7 +69,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
     return (
       <Empty
         image={Empty.PRESENTED_IMAGE_SIMPLE}
-        description="暂无历史记录"
+        description="暂无版本记录"
         style={{ padding: '40px 0' }}
       />
     );
@@ -72,15 +77,18 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
 
   return (
     <div className="history-panel">
-      <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'flex-end' }}>
+      <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          当前材料版本
+        </Text>
         <Popconfirm
-          title="确定要清空所有历史记录吗？"
+          title="确定要清空当前材料的版本记录吗？"
           onConfirm={onClear}
           okText="确定"
           cancelText="取消"
         >
           <Button danger size="small" icon={<DeleteOutlined />}>
-            清空记录
+            清空版本
           </Button>
         </Popconfirm>
       </div>
@@ -97,11 +105,11 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
                 icon={<ExportOutlined />}
                 onClick={() => onLoad(item.id)}
               >
-                加载
+                恢复
               </Button>,
               <Popconfirm
                 key="delete"
-                title="确定要删除此记录吗？"
+                title="确定要删除此版本吗？"
                 onConfirm={() => onDelete(item.id)}
                 okText="确定"
                 cancelText="取消"
@@ -120,12 +128,12 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
             <List.Item.Meta
               avatar={<FileTextOutlined style={{ fontSize: 24, color: '#1890ff' }} />}
               title={
-                <Space>
-                  <Text strong>{item.title || '未命名文档'}</Text>
-                  <Tag color={formatColors[item.format]}>
-                    {formatNames[item.format]}
-                  </Tag>
-                </Space>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  <Text strong>{item.title || '未命名版本'}</Text>
+                  <Text type="secondary" style={{ fontSize: 12 }}>
+                    {formatNames[item.format]} · {getSourceLabel(item.title)}
+                  </Text>
+                </div>
               }
               description={
                 <div>
@@ -137,14 +145,14 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({
                   </Paragraph>
                   <Text type="secondary" style={{ fontSize: 12 }}>
                     <ClockCircleOutlined style={{ marginRight: 4 }} />
-                    最近保存 {formatTime(item.updatedAt)}
+                    保存于 {formatTime(item.updatedAt)}
                   </Text>
                 </div>
               }
             />
           </List.Item>
         )}
-        style={{ maxHeight: 400, overflow: 'auto' }}
+        style={{ maxHeight: 420, overflow: 'auto' }}
       />
     </div>
   );
