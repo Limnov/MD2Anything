@@ -374,13 +374,12 @@ body {
 }
 
 .project-panel__item--material {
-  margin-left: 14px;
   border-color: #f4f4f4;
   background: #fcfcfc;
 }
 
 .project-panel__item--material .project-panel__item-rail {
-  margin-left: 10px;
+  margin-left: 14px;
   margin-top: 11px;
   margin-bottom: 11px;
 }
